@@ -29,6 +29,7 @@ if true; then rg -r x; fi
 X=1 Y=2 rg -r x
 (rg -r x)
 time (rg -r x)
+rg -r x > out
 
 # --- expected ALLOW: -r owned by another command, quoted, --, or not rg ---
 rg foo | sort -r
@@ -55,6 +56,8 @@ a-b=1 rg -r x
 foo (rg -r x)
 sudo (rg -r x)
 rg foo (bar)
+rg foo > out
+rg \-r x
 sort -r file
 ls -la
 echo rg -r foo

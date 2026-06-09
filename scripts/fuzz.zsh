@@ -19,8 +19,12 @@ heads=(rg grep /usr/bin/rg myrg sudo env time command cat sort)
 # (for/case/repeat/function are omitted: zsh gives them special paren syntax —
 # `for x (list)`, `case pat)` — which the lexer deliberately does not model.)
 prefixes=('' '' 'sudo' 'doas' 'command' 'builtin' 'env' 'nice' 'nohup' 'xargs' 'time' 'nocorrect' 'if' 'while' 'until' 'do' 'then' 'else' 'elif' 'done' 'fi' 'esac' '!' '{' '}' 'X=1' 'Y=2')
-# args include BALANCED paren groups so a '(' appears in argument position.
-args=(-r -rn '-r=x' "'-r'" '"-r"' -- --replace '--replace=x' foo 'bar baz' $'fo\ro' $'-r\rx' '$(grep -r x)' '`grep -r x`' '(rg -r x)' '(bar)' '(rg foo)')
+# args include BALANCED paren groups (so a '(' appears in argument position), a
+# backslash-escape, and a '#' (zsh (z) does NOT treat it as a comment). Complex
+# redirections (>& 2>&1 &>) are intentionally NOT fuzzed — they are an unmodeled,
+# fail-open class (see src/lexer.rs); the common `cmd ... > file` is pinned in the
+# corpus instead.
+args=(-r -rn '-r=x' "'-r'" '"-r"' -- --replace '--replace=x' foo 'bar baz' $'fo\ro' $'-r\rx' '$(grep -r x)' '`grep -r x`' '(rg -r x)' '(bar)' '(rg foo)' '\-r' '#c')
 ops=('|' '&&' '||' ';' '&' ' ')   # ' ' = no operator, just continue the command
 
 local N=${1:-500}

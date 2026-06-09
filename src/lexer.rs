@@ -26,6 +26,12 @@
 //! Out of scope (rare, fail-closed): arithmetic `(( ))`, the internals of
 //! `[[ ]]`, and `case` patterns are not modeled, so a literal `rg -r` inside one
 //! of those can over-block. None of these occur in real ripgrep usage.
+//!
+//! Redirections are also not modeled: `&` in `>&` / `2>&1` / `&>` is treated as a
+//! background operator, and `>file` as a plain word. This only ever fails OPEN
+//! (a `-r` separated from `rg` by a redirection may be missed, never a false
+//! block), and the common form — flags before the redirect, e.g.
+//! `rg -r foo 2>/dev/null` — is unaffected (the `-r` is seen first).
 
 /// `NAME=value` assignment prefix: NAME starts with a letter/underscore and is
 /// otherwise all word chars. Mirrors the zsh test
@@ -172,9 +178,10 @@ pub fn tokenize(src: &str) -> Vec<String> {
             // argument (mid-word, or after a command word) it is a glob group
             // glued into the current word, matching zsh `(z)`.
             '(' if cur.is_empty() && cmd_pos => {
+                // command position continues inside the subshell, so `cmd_pos`
+                // is left unchanged (the match guard already required it true).
                 toks.push("(".to_string());
-                depth += 1;
-                cmd_pos = true; // inside the subshell we are in command position
+                depth = depth.saturating_add(1); // overflow-safe (decrement already is)
                 i += 1;
             }
             '(' => {

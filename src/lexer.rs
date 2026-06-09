@@ -89,90 +89,43 @@ pub fn tokenize(src: &str) -> Vec<String> {
                     i += 1;
                 }
             }
-            // $( ... ) command substitution, balanced — stays inside the word
-            '$' if i + 1 < n && chars[i + 1] == '(' => {
+            // $( ... ) substitution or ${ ... } expansion, balanced — kept whole
+            '$' if i + 1 < n && (chars[i + 1] == '(' || chars[i + 1] == '{') => {
+                let open = chars[i + 1];
+                let close = if open == '(' { ')' } else { '}' };
                 cur.push('$');
-                cur.push('(');
-                i += 2;
-                let mut depth = 1;
-                while i < n && depth > 0 {
-                    let d = chars[i];
-                    if d == '(' {
-                        depth += 1;
-                    } else if d == ')' {
-                        depth -= 1;
+                cur.push(open);
+                i = scan_balanced(&chars, i + 2, open, close, &mut cur);
+            }
+            // operator families: prefer a two-char operator, else the single char.
+            // two-char set: || |& && ;; ;& ;|
+            '|' | '&' | ';' => {
+                push_word(&mut toks, &mut cur);
+                let two = (i + 1 < n)
+                    .then(|| match (c, chars[i + 1]) {
+                        ('|', '|') => Some("||"),
+                        ('|', '&') => Some("|&"),
+                        ('&', '&') => Some("&&"),
+                        (';', ';') => Some(";;"),
+                        (';', '&') => Some(";&"),
+                        (';', '|') => Some(";|"),
+                        _ => None,
+                    })
+                    .flatten();
+                match two {
+                    Some(op) => {
+                        toks.push(op.to_string());
+                        i += 2;
                     }
-                    cur.push(d);
-                    i += 1;
-                }
-            }
-            // ${ ... } parameter expansion, balanced — stays inside the word
-            '$' if i + 1 < n && chars[i + 1] == '{' => {
-                cur.push('$');
-                cur.push('{');
-                i += 2;
-                let mut depth = 1;
-                while i < n && depth > 0 {
-                    let d = chars[i];
-                    if d == '{' {
-                        depth += 1;
-                    } else if d == '}' {
-                        depth -= 1;
+                    None => {
+                        toks.push(c.to_string());
+                        i += 1;
                     }
-                    cur.push(d);
-                    i += 1;
                 }
             }
-            // pipe family: | || |&
-            '|' => {
+            '(' | ')' => {
                 push_word(&mut toks, &mut cur);
-                if i + 1 < n && chars[i + 1] == '|' {
-                    toks.push("||".to_string());
-                    i += 2;
-                } else if i + 1 < n && chars[i + 1] == '&' {
-                    toks.push("|&".to_string());
-                    i += 2;
-                } else {
-                    toks.push("|".to_string());
-                    i += 1;
-                }
-            }
-            // ampersand family: && &
-            '&' => {
-                push_word(&mut toks, &mut cur);
-                if i + 1 < n && chars[i + 1] == '&' {
-                    toks.push("&&".to_string());
-                    i += 2;
-                } else {
-                    toks.push("&".to_string());
-                    i += 1;
-                }
-            }
-            // semicolon family: ;; ;& ;| ;
-            ';' => {
-                push_word(&mut toks, &mut cur);
-                if i + 1 < n && chars[i + 1] == ';' {
-                    toks.push(";;".to_string());
-                    i += 2;
-                } else if i + 1 < n && chars[i + 1] == '&' {
-                    toks.push(";&".to_string());
-                    i += 2;
-                } else if i + 1 < n && chars[i + 1] == '|' {
-                    toks.push(";|".to_string());
-                    i += 2;
-                } else {
-                    toks.push(";".to_string());
-                    i += 1;
-                }
-            }
-            '(' => {
-                push_word(&mut toks, &mut cur);
-                toks.push("(".to_string());
-                i += 1;
-            }
-            ')' => {
-                push_word(&mut toks, &mut cur);
-                toks.push(")".to_string());
+                toks.push(c.to_string());
                 i += 1;
             }
             _ => {
@@ -189,6 +142,25 @@ fn push_word(toks: &mut Vec<String>, cur: &mut String) {
     if !cur.is_empty() {
         toks.push(std::mem::take(cur));
     }
+}
+
+/// Copy a balanced `open`..`close` span (starting just past the opener) into
+/// `cur`, returning the index just past the closer. Shared by `$( ... )` and
+/// `${ ... }`. An unterminated span runs to end-of-input (fail-open: the lexer
+/// just keeps the rest in the current word).
+fn scan_balanced(chars: &[char], mut i: usize, open: char, close: char, cur: &mut String) -> usize {
+    let mut depth = 1;
+    while i < chars.len() && depth > 0 {
+        let d = chars[i];
+        if d == open {
+            depth += 1;
+        } else if d == close {
+            depth -= 1;
+        }
+        cur.push(d);
+        i += 1;
+    }
+    i
 }
 
 #[cfg(test)]

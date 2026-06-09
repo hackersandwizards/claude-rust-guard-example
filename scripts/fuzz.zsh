@@ -5,12 +5,9 @@
 #
 # Deterministic: RANDOM is seeded, so a reported divergence reproduces.
 emulate -L zsh
-
-repo=${0:A:h:h}
-hook=$repo/reference/rg-recursion-guard.zsh
-bin=$repo/target/release/claude-rg-guard
-[[ -x $bin ]] || { print -u2 "fuzz: build first (cargo build --release)"; exit 1; }
-(( $+commands[jaq] )) || { print -u2 "fuzz: jaq not found"; exit 1; }
+source ${0:A:h}/_lib.zsh
+require_built
+need jaq
 
 local -a heads args ops
 heads=(rg grep /usr/bin/rg myrg sudo env time command cat sort)
@@ -33,7 +30,7 @@ for (( k = 0; k < N; k++ )); do
     done
   done
 
-  json=$(jaq -n --arg c "$cmd" '{tool_input:{command:$c}}')
+  json=$(payload "$cmd")
   print -r -- "$json" | $hook >/dev/null 2>&1; zexit=$?
   print -r -- "$json" | $bin  >/dev/null 2>&1; rexit=$?
   if [[ $zexit != $rexit ]]; then

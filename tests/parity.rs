@@ -1,12 +1,11 @@
-//! Parity test: run the compiled binary over the shared corpus and assert its
-//! exit code matches the zsh oracle's verdict for every line.
+//! Parity test: run the compiled binary over the zsh oracle's verdict table and
+//! assert its exit code matches for every line.
 //!
-//! The oracle verdicts live in `testdata/expected.tsv`, generated from the
-//! reference zsh hook by `scripts/oracle.zsh` (run via `just oracle`, which the
-//! `just test` recipe does first). The corpus and the expected table are read at
-//! runtime so this test never needs a stale snapshot baked into the binary.
+//! `testdata/expected.tsv` is generated from the reference zsh hook by
+//! `scripts/oracle.zsh` (run via `just oracle`, which `just test` does first).
+//! Each line is `<exit-code>\t<command>`, so the table is the self-contained
+//! spec — the test walks it directly and never re-joins against the corpus.
 
-use std::collections::HashMap;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
@@ -28,39 +27,30 @@ fn run(cmd: &str) -> i32 {
     child.wait().expect("wait").code().unwrap_or(-1)
 }
 
-fn skip(line: &str) -> bool {
-    line.is_empty() || line.starts_with('#')
-}
-
 #[test]
 fn corpus_matches_oracle() {
     let dir = env!("CARGO_MANIFEST_DIR");
-    let corpus = std::fs::read_to_string(format!("{dir}/testdata/corpus.txt"))
-        .expect("read testdata/corpus.txt");
     let expected = std::fs::read_to_string(format!("{dir}/testdata/expected.tsv"))
         .expect("read testdata/expected.tsv — run `just oracle` first");
 
-    // expected.tsv lines: "<exit-code>\t<command>"
-    let mut oracle: HashMap<&str, i32> = HashMap::new();
-    for line in expected.lines() {
-        if let Some((code, cmd)) = line.split_once('\t') {
-            oracle.insert(cmd, code.parse().expect("exit code is an int"));
-        }
-    }
-
+    let mut checked = 0;
     let mut failures = Vec::new();
-    for cmd in corpus.lines().filter(|l| !skip(l)) {
-        let want = *oracle
-            .get(cmd)
-            .unwrap_or_else(|| panic!("no oracle entry for {cmd:?} — regenerate expected.tsv"));
+    for line in expected.lines() {
+        let Some((code, cmd)) = line.split_once('\t') else {
+            continue;
+        };
+        let want: i32 = code.parse().expect("exit code is an int");
         let got = run(cmd);
         if got != want {
             failures.push(format!("  {cmd:?}: oracle={want} binary={got}"));
         }
+        checked += 1;
     }
+
+    assert!(checked > 0, "expected.tsv is empty — run `just oracle`");
     assert!(
         failures.is_empty(),
-        "parity failures ({}):\n{}",
+        "parity failures ({}/{checked}):\n{}",
         failures.len(),
         failures.join("\n")
     );

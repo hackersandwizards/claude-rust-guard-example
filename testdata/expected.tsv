@@ -1,0 +1,40 @@
+2	rg -r foo
+2	rg -n -r pat path
+2	cat x | rg -r bar
+2	time rg -r x
+2	sudo rg -r x
+2	doas rg -r x
+2	nice rg -r x
+2	env X=1 rg -r x
+2	command rg -r x
+2	X=1 rg -r x
+2	/usr/bin/rg -r x
+2	rg -rn foo
+2	rg -r=x p
+2	rg -rfoo
+2	rg foo -r
+2	rg --foo -r x
+2	rg foo && rg -r bar
+2	cat a | rg -r b | wc -l
+0	rg foo | sort -r
+0	rg foo | xargs rm -r
+0	rg 'a -r b'
+0	rg "a -r b"
+0	rg '-r' x
+0	rg "-r" x
+0	grep -r foo
+0	git grep -r foo
+0	rg --replace=x p
+0	rg --replace x
+0	rg -- -r
+0	rg -R foo
+0	rg foo
+0	rg foo; rm -r d
+0	rg foo && rm -r d
+0	rg $(grep -r x) y
+0	rg `grep -r x` y
+0	myrg -r x
+0	rgx -r foo
+0	sort -r file
+0	ls -la
+0	echo rg -r foo

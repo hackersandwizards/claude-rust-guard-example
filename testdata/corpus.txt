@@ -1,0 +1,48 @@
+# Shared parity corpus: one raw shell command per line.
+# scripts/oracle.zsh runs each through the reference zsh hook to produce the
+# ground-truth verdict; tests/parity.rs asserts the binary agrees.
+# Lines that are blank or start with '#' are skipped by both.
+
+# --- expected BLOCK: rg with a bare -r (or -r* cluster) as its own argument ---
+rg -r foo
+rg -n -r pat path
+cat x | rg -r bar
+time rg -r x
+sudo rg -r x
+doas rg -r x
+nice rg -r x
+env X=1 rg -r x
+command rg -r x
+X=1 rg -r x
+/usr/bin/rg -r x
+rg -rn foo
+rg -r=x p
+rg -rfoo
+rg foo -r
+rg --foo -r x
+rg foo && rg -r bar
+cat a | rg -r b | wc -l
+
+# --- expected ALLOW: -r owned by another command, quoted, --, or not rg ---
+rg foo | sort -r
+rg foo | xargs rm -r
+rg 'a -r b'
+rg "a -r b"
+rg '-r' x
+rg "-r" x
+grep -r foo
+git grep -r foo
+rg --replace=x p
+rg --replace x
+rg -- -r
+rg -R foo
+rg foo
+rg foo; rm -r d
+rg foo && rm -r d
+rg $(grep -r x) y
+rg `grep -r x` y
+myrg -r x
+rgx -r foo
+sort -r file
+ls -la
+echo rg -r foo

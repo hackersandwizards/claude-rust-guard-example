@@ -1,0 +1,17 @@
+[package]
+name = "claude-rg-guard"
+version = "0.1.0"
+edition = "2021"
+description = "PreToolUse hook: block `rg -r` (ripgrep --replace) typed as if it were grep's recursive -r"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Smallest, fastest binary: the spawn cost dominates, so trim everything else.
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
+panic = "abort"
+codegen-units = 1

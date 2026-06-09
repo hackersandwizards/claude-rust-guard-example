@@ -21,6 +21,8 @@
 2	for f in a; do rg -r x; done
 2	if true; then rg -r x; fi
 2	X=1 Y=2 rg -r x
+2	(rg -r x)
+2	time (rg -r x)
 0	rg foo | sort -r
 0	rg foo | xargs rm -r
 0	rg 'a -r b'
@@ -42,6 +44,9 @@
 0	rgx -r foo
 0	1x=1 rg -r x
 0	a-b=1 rg -r x
+0	foo (rg -r x)
+0	sudo (rg -r x)
+0	rg foo (bar)
 0	sort -r file
 0	ls -la
 0	echo rg -r foo

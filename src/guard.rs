@@ -2,6 +2,8 @@
 //! decide block vs allow. Ported line-for-line from
 //! `reference/rg-recursion-guard.zsh` (the parity oracle).
 
+use crate::lexer::is_assignment;
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Verdict {
     Allow,
@@ -56,23 +58,6 @@ fn is_wrapper(t: &str) -> bool {
     )
 }
 
-/// `NAME=value` assignment prefix: NAME starts with a letter/underscore and is
-/// otherwise all word chars. Matches the zsh test
-/// `[[ $pre == [A-Za-z_]* && $pre != *[^A-Za-z0-9_]* ]]`.
-fn is_assignment(t: &str) -> bool {
-    match t.split_once('=') {
-        Some((pre, _)) => {
-            !pre.is_empty()
-                && pre
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-                && pre.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-        }
-        None => false,
-    }
-}
-
 /// `rg` or any path ending in `/rg` (mirrors `[[ $t == rg || $t == */rg ]]`).
 fn is_rg_head(t: &str) -> bool {
     t == "rg" || t.ends_with("/rg")
@@ -119,8 +104,8 @@ pub fn evaluate(tokens: &[String]) -> Verdict {
 
 #[cfg(test)]
 mod tests {
-    use super::{evaluate, is_assignment, Verdict};
-    use crate::lexer::tokenize;
+    use super::{evaluate, Verdict};
+    use crate::lexer::{is_assignment, tokenize};
 
     fn v(s: &str) -> Verdict {
         evaluate(&tokenize(s))

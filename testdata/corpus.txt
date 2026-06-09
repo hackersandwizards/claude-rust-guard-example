@@ -27,6 +27,8 @@ rg -- foo; rg -r x
 for f in a; do rg -r x; done
 if true; then rg -r x; fi
 X=1 Y=2 rg -r x
+(rg -r x)
+time (rg -r x)
 
 # --- expected ALLOW: -r owned by another command, quoted, --, or not rg ---
 rg foo | sort -r
@@ -50,6 +52,9 @@ myrg -r x
 rgx -r foo
 1x=1 rg -r x
 a-b=1 rg -r x
+foo (rg -r x)
+sudo (rg -r x)
+rg foo (bar)
 sort -r file
 ls -la
 echo rg -r foo

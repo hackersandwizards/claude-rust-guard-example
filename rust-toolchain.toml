@@ -1,0 +1,5 @@
+# Pin the toolchain and ensure the lint/format components are present (analog to
+# the reference's `engines` node/npm pin). rustup reads this automatically.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]

@@ -1,0 +1,4 @@
+# rustfmt config. Like the reference's empty .prettierrc.json, this keeps the
+# tool's defaults and only pins the edition so a bare `rustfmt` agrees with
+# `cargo fmt`. Run: cargo fmt  (check: cargo fmt --check)
+edition = "2021"

@@ -1,0 +1,22 @@
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Rust: rustfmt's defaults (4-space, 100 cols).
+[*.rs]
+indent_size = 4
+max_line_length = 100
+
+# Config / data / docs: 2-space.
+[*.{toml,yml,yaml,json,md,zsh}]
+indent_size = 2
+
+# Trailing whitespace is significant in Markdown (hard line breaks).
+[*.md]
+trim_trailing_whitespace = false

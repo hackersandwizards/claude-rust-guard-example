@@ -1,11 +1,36 @@
-# claude-rg-guard — task runner
+# claude-rg-guard — task runner (the Rust analog of the reference repo's npm scripts)
 
 _default:
     @just --list
 
+# install git hooks (needs lefthook: `brew install lefthook`)
+setup:
+    lefthook install
+
 # build the release binary
 build:
     cargo build --release
+
+# format the code
+fmt:
+    cargo fmt
+
+# check formatting without writing (CI-style)
+fmt-check:
+    cargo fmt --check
+
+# lint with clippy (warnings are errors)
+lint:
+    cargo clippy --all-targets --all-features -- -D warnings
+
+# auto-fix lints, then format
+fix:
+    cargo clippy --fix --allow-dirty --allow-staged --all-targets --all-features
+    cargo fmt
+
+# type/borrow check without producing artifacts
+check:
+    cargo check --all-targets
 
 # regenerate the oracle verdict table from the reference zsh hook
 oracle:
@@ -23,8 +48,11 @@ fuzz n="500": build
 bench n="300": build
     zsh scripts/bench.zsh {{n}}
 
-# everything: build, oracle, test, fuzz, bench
-all: test fuzz bench
+# the pre-commit/pre-push gate, run by hand: format, lint, test, fuzz
+verify: fmt-check lint test fuzz
+
+# verify + benchmark
+all: verify bench
 
 # print the path to wire into ~/.claude/settings.json
 install: build

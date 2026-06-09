@@ -15,3 +15,11 @@ lto = true
 strip = true
 panic = "abort"
 codegen-units = 1
+
+# Lints (the clippy/rustc analog of the reference's eslint config). Enforced
+# locally by `just lint` and the lefthook pre-commit hook.
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "deny"

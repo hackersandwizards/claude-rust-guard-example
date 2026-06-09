@@ -83,6 +83,29 @@ In `~/.claude/settings.json`, the PreToolUse hook points at the release binary:
 The binary must be rebuilt after edits (`just build`) and per machine. If it is
 missing, the hook simply fails open — no guard, no breakage.
 
+## Development
+
+Tooling mirrors the reference project, mapped to Rust:
+
+| concern | tool | command |
+|---|---|---|
+| format | rustfmt (`rustfmt.toml`) | `just fmt` · `just fmt-check` |
+| lint | clippy (`[lints]` in `Cargo.toml`) | `just lint` |
+| test | cargo test | `just test` |
+| check | cargo check | `just check` |
+| git hooks | lefthook (`lefthook.yml`) | `just setup` |
+
+```sh
+brew install lefthook   # one-time, if not already present
+just setup              # install the git hooks
+just verify             # fmt-check + lint + test + fuzz, by hand
+```
+
+`lefthook.yml` runs `cargo fmt` + `cargo clippy -D warnings` (and `zsh -n` on the
+shell scripts) on **pre-commit**, and `cargo test` on **pre-push**. The toolchain
+plus its `rustfmt`/`clippy` components are pinned in `rust-toolchain.toml`. There
+is intentionally no CI — the hooks are the gate.
+
 ## Tests
 
 ```sh

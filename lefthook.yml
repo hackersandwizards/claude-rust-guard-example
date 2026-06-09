@@ -1,0 +1,27 @@
+# https://lefthook.dev — Git hooks manager (Go binary, parallel by default).
+# Mirrors the reference repo's setup, mapped to Rust + the repo's zsh scripts.
+# Install the hooks once with `just setup` (needs `brew install lefthook`).
+
+pre-commit:
+  # Piped: run in order, stop on first failure. cargo fmt rewrites files, so it
+  # must finish (and be re-staged) before clippy reads them.
+  piped: true
+  commands:
+    fmt:
+      priority: 1
+      glob: "*.rs"
+      run: cargo fmt
+      stage_fixed: true
+    clippy:
+      priority: 2
+      glob: "*.rs"
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    zsh-syntax:
+      priority: 3
+      glob: "*.zsh"
+      run: for f in {staged_files}; do zsh -n "$f" || exit 1; done
+
+pre-push:
+  commands:
+    test:
+      run: cargo test

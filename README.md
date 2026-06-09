@@ -97,9 +97,13 @@ Tooling mirrors the reference project, mapped to Rust:
 
 ```sh
 brew install lefthook   # one-time, if not already present
-just setup              # install the git hooks
+cargo build             # build.rs auto-installs the hooks (npm-`prepare` style)
 just verify             # fmt-check + lint + test + fuzz, by hand
 ```
+
+The hooks install themselves: `build.rs` runs `lefthook install` on the first
+local `cargo build`/`cargo test` (fail-soft — it skips quietly if lefthook is
+absent or this isn't a git checkout). `just setup` stays as a manual fallback.
 
 `lefthook.yml` runs `cargo fmt` + `cargo clippy -D warnings` (and `zsh -n` on the
 shell scripts) on **pre-commit**, and `cargo test` on **pre-push**. The toolchain

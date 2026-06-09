@@ -22,8 +22,9 @@ This is a Rust port of an earlier zsh hook. The zsh version is kept verbatim at
    extracts `.tool_input.command` (serde_json, in-process — no `jaq` subprocess).
 3. It tokenizes the command with a quote-aware lexer that mirrors zsh `${(z)}`
    (quotes retained, `$(...)`/backticks kept whole, operators split out, newline →
-   `;`), then a 3-state machine (head / rg / other) attributes a bare `-r` (or an
-   `-r*` cluster like `-rn`) to its owning command.
+   `;`, and `(`/`)` split only in command position — so `(rg -r x)` is a subshell
+   but `foo (rg -r x)` is an argument), then a 3-state machine (head / rg / other)
+   attributes a bare `-r` (or an `-r*` cluster like `-rn`) to its owning command.
 4. `rg`'s own `-r` → exit 2 + message on stderr (block). Anything else, or any
    parse/uncertainty → exit 0 (**fail open**).
 
@@ -35,6 +36,7 @@ This is a Rust port of an earlier zsh hook. The zsh version is kept verbatim at
 | `cat x \| rg -r b`, `time rg -r x`, `sudo rg -r x`, `env X=1 rg -r x` | `rg '-r' x`, `rg "-r" x` (quoted) |
 | `/usr/bin/rg -r x`, `X=1 rg -r x`, `command rg -r x` | `rg -- -r` (`--` ends options), `rg --replace=x p` |
 | `rg foo && rg -r bar` | `grep -r foo`, `myrg -r x`, `rg $(grep -r x) y` |
+| `(rg -r x)`, `time (rg -r x)` (command-position subshell) | `foo (rg -r x)`, `sudo (rg -r x)` (`(` is an argument) |
 
 ## Performance
 
@@ -122,8 +124,10 @@ just all             # test + fuzz + bench
 - `testdata/corpus.txt` — shared inputs; `scripts/oracle.zsh` runs them through the
   reference zsh hook to produce `testdata/expected.tsv` (ground truth).
 - `tests/parity.rs` — runs the binary over the corpus, asserts exit code == oracle.
-- `scripts/fuzz.zsh` — grammar-generates commands and diffs the binary against the
-  zsh hook live. Last run: **2000 cases, 0 divergences.**
+- `scripts/fuzz.zsh` — grammar-generates commands (heads, reserved-word/wrapper/
+  assignment prefixes, balanced subshells, quotes, `$()`/backticks, `\r`, escapes,
+  `#`) and diffs the binary against the zsh hook live. Last run: **20000 cases, 0
+  divergences.**
 
 ## Layout
 

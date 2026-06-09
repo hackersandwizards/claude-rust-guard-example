@@ -119,59 +119,69 @@ pub fn evaluate(tokens: &[String]) -> Verdict {
 
 #[cfg(test)]
 mod tests {
-    use super::{evaluate, Verdict};
+    use super::{evaluate, is_assignment, Verdict};
     use crate::lexer::tokenize;
 
     fn v(s: &str) -> Verdict {
         evaluate(&tokenize(s))
     }
 
+    // The exhaustive verdict matrix lives in testdata/corpus.txt and is checked
+    // end-to-end against the zsh oracle by tests/parity.rs. The cases here pin
+    // each evaluate() *branch* in isolation (zsh-free), one representative apiece
+    // — not a second copy of the corpus.
     #[test]
-    fn blocks_rg_replace() {
+    fn blocks_bare_r_owned_by_rg() {
         for s in [
-            "rg -r foo",
-            "rg -n -r pat path",
-            "cat x | rg -r b",
-            "time rg -r x",
-            "sudo rg -r x",
-            "env X=1 rg -r x",
-            "/usr/bin/rg -r x",
-            "rg -rn foo",
-            "rg -r=x p",
-            "rg -rfoo",
-            "rg foo -r",
-            "X=1 rg -r x",
-            "command rg -r x",
-            "rg --foo -r x",
-            "rg foo && rg -r bar",
+            "rg -r foo",                    // Rg state, bare -r
+            "rg -n -r pat",                 // a non-matching flag, then -r
+            "rg foo -r",                    // -r after a positional
+            "rg -rn foo",                   // cluster -rn
+            "rg -r=x p",                    // cluster -r=x
+            "rg -rfoo",                     // cluster -rfoo
+            "sudo rg -r x",                 // wrapper skipped -> rg head
+            "X=1 rg -r x",                  // assignment skipped -> rg head
+            "X=1 Y=2 rg -r x",              // consecutive assignments skipped
+            "/usr/bin/rg -r x",             // path head (*/rg)
+            "cat x | rg -r b",              // operator resets to Head, then rg
+            "rg a && rg -r b",              // re-entry into Rg after an operator
+            "for f in a; do rg -r x; done", // reserved word `do` is transparent
         ] {
             assert_eq!(v(s), Verdict::Block, "expected BLOCK for {s:?}");
         }
     }
 
     #[test]
-    fn allows_everything_else() {
+    fn allows_when_r_is_not_rgs_recursive_flag() {
         for s in [
-            "rg foo | sort -r",
-            "rg foo | xargs rm -r",
-            "rg 'a -r b'",
-            "rg '-r' x",
-            "rg \"-r\" x",
-            "grep -r foo",
-            "rg --replace=x p",
-            "rg -- -r",
-            "rg foo",
-            "rg foo; rm -r d",
-            "rg foo && rm -r d",
-            "rg $(grep -r x) y",
-            "rg `grep -r x` y",
-            "myrg -r x",
-            "rgx -r foo",
-            "ls -la",
-            "rg -R foo",
-            "echo rg -r foo",
+            "rg -- -r",          // -- ends options
+            "rg --replace=x p",  // --replace starts with --, not -r
+            "rg -R foo",         // capital R is not -r
+            "rg '-r' x",         // quoted: lexer keeps the quotes, not bare
+            "rg \"-r\" x",       // quoted (double)
+            "rg $(grep -r x) y", // $(...) stays one opaque token
+            "grep -r foo",       // non-rg head -> Other
+            "myrg -r x",         // head is neither rg nor */rg
+            "1x=1 rg -r x",      // invalid assignment -> non-rg head -> Other
+            "rg foo | sort -r",  // -r owned by sort (Other)
+            "rg foo",            // no -r at all
+            "ls -la",            // no rg at all
         ] {
             assert_eq!(v(s), Verdict::Allow, "expected ALLOW for {s:?}");
         }
+    }
+
+    // is_assignment carries the only non-trivial helper logic, and its rejection
+    // branches are awkward to reach through a whole command — pin them directly.
+    #[test]
+    fn assignment_prefix_recognition() {
+        assert!(is_assignment("X=1")); // simple NAME=value
+        assert!(is_assignment("FOO_BAR=baz")); // underscores + digits in name
+        assert!(is_assignment("_x=1")); // leading underscore is allowed
+        assert!(is_assignment("A=")); // empty value is still an assignment
+        assert!(!is_assignment("1x=1")); // name must not start with a digit
+        assert!(!is_assignment("a-b=1")); // `-` is not a word char
+        assert!(!is_assignment("=x")); // empty name
+        assert!(!is_assignment("rg")); // no `=` at all
     }
 }

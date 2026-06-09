@@ -6,6 +6,11 @@
 //! and exits 2 (block, message on stderr) when a bare `-r` belongs to an `rg`
 //! command. Fails open: any read/parse error or uncertainty -> exit 0 (allow).
 //!
+//! Non-UTF-8 stdin is a deliberate, accepted divergence from the byte-safe zsh
+//! oracle: `read_to_string` rejects it -> fail open. Hook payloads are JSON
+//! (UTF-8 by spec), so this never arrives from Claude Code — do not "fix" it with
+//! `read_to_end` + lossy decode, which would silently alter the tokenizer input.
+//!
 //! The whole thing is in-process (no jaq subprocess), so the cost is a single
 //! process spawn. That is NOT < 1 ms — the OS spawn floor is ~1.7 ms here — but
 //! it is ~4x faster than the previous zsh+jaq hook on the block path. The common

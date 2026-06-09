@@ -22,6 +22,10 @@ rg foo -r
 rg --foo -r x
 rg foo && rg -r bar
 cat a | rg -r b | wc -l
+xargs rg -r x
+rg -- foo; rg -r x
+for f in a; do rg -r x; done
+if true; then rg -r x; fi
 
 # --- expected ALLOW: -r owned by another command, quoted, --, or not rg ---
 rg foo | sort -r

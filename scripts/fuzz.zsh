@@ -11,7 +11,7 @@ need jaq
 
 local -a heads args ops
 heads=(rg grep /usr/bin/rg myrg sudo env time command cat sort)
-args=(-r -rn '-r=x' "'-r'" '"-r"' -- --replace '--replace=x' foo 'bar baz' '$(grep -r x)' '`grep -r x`')
+args=(-r -rn '-r=x' "'-r'" '"-r"' -- --replace '--replace=x' foo 'bar baz' $'fo\ro' $'-r\rx' '$(grep -r x)' '`grep -r x`')
 ops=('|' '&&' '||' ';' '&' ' ')   # ' ' = no operator, just continue the command
 
 local N=${1:-500}

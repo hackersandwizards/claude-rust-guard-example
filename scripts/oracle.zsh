@@ -8,7 +8,7 @@ need jaq
 
 corpus=$repo/testdata/corpus.txt
 out=$repo/testdata/expected.tsv
-[[ -r $corpus ]] || { print -u2 "oracle: missing $corpus"; exit 1 }
+[[ -r $corpus ]] || { print -u2 "${ZSH_ARGZERO:t}: missing $corpus"; exit 1 }
 
 : > $out
 # Declare locals ONCE: re-running `local` inside a zsh loop prints the variable.

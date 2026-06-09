@@ -8,6 +8,9 @@
 //! - command operators split into their own tokens, even without surrounding
 //!   whitespace: `|` `||` `|&` `&` `&&` `;` `;;` `;&` `;|` `(` `)`
 //! - a newline becomes a `;` token
+//! - a carriage return `\r` is an ordinary word character: zsh `(z)` retains it
+//!   inside the token and never treats it as a separator. Only ` `, `\t`, and
+//!   `\n` break words.
 //!
 //! `{` / `}` are NOT split here — in zsh they are reserved words only when
 //! whitespace-delimited, so they already surface as standalone tokens and the
@@ -24,8 +27,10 @@ pub fn tokenize(src: &str) -> Vec<String> {
     while i < n {
         let c = chars[i];
         match c {
-            // whitespace ends a word; a newline additionally yields a `;` token
-            ' ' | '\t' | '\r' => {
+            // space/tab end a word; a newline additionally yields a `;` token.
+            // `\r` is deliberately absent: zsh `(z)` keeps it inside the token as
+            // an ordinary char (see module docs), so it falls through to `_`.
+            ' ' | '\t' => {
                 push_word(&mut toks, &mut cur);
                 i += 1;
             }
@@ -101,8 +106,8 @@ pub fn tokenize(src: &str) -> Vec<String> {
             // two-char set: || |& && ;; ;& ;|
             '|' | '&' | ';' => {
                 push_word(&mut toks, &mut cur);
-                let two = (i + 1 < n)
-                    .then(|| match (c, chars[i + 1]) {
+                let two = if i + 1 < n {
+                    match (c, chars[i + 1]) {
                         ('|', '|') => Some("||"),
                         ('|', '&') => Some("|&"),
                         ('&', '&') => Some("&&"),
@@ -110,8 +115,10 @@ pub fn tokenize(src: &str) -> Vec<String> {
                         (';', '&') => Some(";&"),
                         (';', '|') => Some(";|"),
                         _ => None,
-                    })
-                    .flatten();
+                    }
+                } else {
+                    None
+                };
                 match two {
                     Some(op) => {
                         toks.push(op.to_string());
@@ -191,5 +198,9 @@ mod tests {
         assert_eq!(t("rg --replace=x p"), ["rg", "--replace=x", "p"]);
         assert_eq!(t("(rg -r x)"), ["(", "rg", "-r", "x", ")"]);
         assert_eq!(t("{ rg -r x; }"), ["{", "rg", "-r", "x", ";", "}"]);
+        // a carriage return is kept inside the token, never a separator:
+        // `rg\r-r` is ONE token (head != "rg" -> allow), matching zsh `(z)`.
+        assert_eq!(t("rg\r-r"), ["rg\r-r"]);
+        assert_eq!(t("rg fo\ro -r bar"), ["rg", "fo\ro", "-r", "bar"]);
     }
 }

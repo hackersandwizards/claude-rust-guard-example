@@ -2,8 +2,8 @@
 # Source from a sibling script:  source ${0:A:h}/_lib.zsh
 #
 # Sets: repo, hook, bin.  Provides: payload, need, require_built.
-# `${0:A:h:h}` resolves to the repo root whether $0 is this lib or the caller —
-# both live in scripts/, so two `:h` steps land on the repo either way.
+# When sourced, $0 is this file (scripts/_lib.zsh), so `:A:h:h` (absolute path,
+# then two parent steps: scripts/ -> repo root) lands on the repo root.
 
 repo=${0:A:h:h}
 hook=$repo/reference/rg-recursion-guard.zsh

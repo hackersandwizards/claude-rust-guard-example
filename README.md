@@ -22,11 +22,11 @@ This is a Rust port of an earlier zsh hook. The zsh version is kept verbatim at
    extracts `.tool_input.command` (serde_json, in-process — no `jaq` subprocess).
 3. It tokenizes the command with a quote-aware lexer that mirrors zsh `${(z)}`
    (quotes retained, `$(...)`/backticks kept whole, operators split out, newline →
-   `;`, and `(`/`)` split only in command position — so `(rg -r x)` is a subshell
+   `;`, `)` always split, and `(` split only in command position — so `(rg -r x)` is a subshell
    but `foo (rg -r x)` is an argument), then a 3-state machine (head / rg / other)
    attributes a bare `-r` (or an `-r*` cluster like `-rn`) to its owning command.
-4. `rg`'s own `-r` → exit 2 + message on stderr (block). Anything else, or any
-   parse/uncertainty → exit 0 (**fail open**).
+4. `rg`'s own `-r` → exit 2 + message on stderr (block). Anything else, or stdin
+   that is not hook JSON with a command → exit 0 (**fail open**).
 
 ### What blocks vs. allows
 
@@ -58,12 +58,17 @@ the settings `if` gate means **nothing spawns at all**.
 
 ## Build & wire-up
 
+You need Rust through rustup (`rust-toolchain.toml` selects stable with rustfmt and
+clippy), [just](https://github.com/casey/just), and for the tests zsh and
+[jaq](https://github.com/01mf02/jaq).
+
 ```sh
 just build           # cargo build --release
 just install         # prints the binary path to put in settings.json
 ```
 
-In `~/.claude/settings.json`, the PreToolUse hook points at the release binary:
+In `~/.claude/settings.json`, the PreToolUse hook points at the release binary
+(`<clone>` is this repository's directory; `just install` prints the full path):
 
 ```json
 {
@@ -74,7 +79,7 @@ In `~/.claude/settings.json`, the PreToolUse hook points at the release binary:
         "hooks": [
           { "type": "command",
             "if": "Bash(*rg *-r*)",
-            "command": "/Users/bstemmildt/opt/claude-rg-guard/target/release/claude-rg-guard" }
+            "command": "<clone>/target/release/claude-rg-guard" }
         ]
       }
     ]
@@ -87,7 +92,7 @@ missing, the hook simply fails open — no guard, no breakage.
 
 ## Development
 
-Tooling mirrors the reference project, mapped to Rust:
+Tooling:
 
 | concern | tool | command |
 |---|---|---|
@@ -104,12 +109,12 @@ just verify             # fmt-check + lint + test + fuzz, by hand
 ```
 
 The hooks install themselves: `build.rs` runs `lefthook install` on the first
-local `cargo build`/`cargo test` (fail-soft — it skips quietly if lefthook is
-absent or this isn't a git checkout). `just setup` stays as a manual fallback.
+local `cargo build`/`cargo test` (fail-soft: without lefthook it prints a Cargo warning and skips; outside a git
+checkout it skips quietly). `just setup` stays as a manual fallback.
 
 `lefthook.yml` runs `cargo fmt` + `cargo clippy -D warnings` (and `zsh -n` on the
 shell scripts) on **pre-commit**, and `cargo test` on **pre-push**. The toolchain
-plus its `rustfmt`/`clippy` components are pinned in `rust-toolchain.toml`. There
+channel (stable) and its `rustfmt`/`clippy` components are set in `rust-toolchain.toml`. There
 is intentionally no CI — the hooks are the gate.
 
 ## Tests
@@ -118,7 +123,7 @@ is intentionally no CI — the hooks are the gate.
 just test            # unit tests + corpus parity vs the zsh oracle
 just fuzz 2000       # differential fuzz: 2000 random commands, rust verdict == zsh verdict
 just bench           # the table above
-just all             # test + fuzz + bench
+just all             # verify (fmt-check + lint + test + fuzz) + bench
 ```
 
 - `testdata/corpus.txt` — shared inputs; `scripts/oracle.zsh` runs them through the
@@ -139,3 +144,8 @@ reference/     the zsh hook, frozen as the parity oracle
 testdata/      corpus.txt + generated expected.tsv
 scripts/       oracle.zsh · fuzz.zsh · bench.zsh
 ```
+
+## License
+
+[PolyForm Strict 1.0.0](LICENSE), copyright hackers&wizards GmbH. The name
+hackers&wizards and its logos are not licensed.

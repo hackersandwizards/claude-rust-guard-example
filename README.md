@@ -74,7 +74,7 @@ In `~/.claude/settings.json`, the PreToolUse hook points at the release binary:
         "hooks": [
           { "type": "command",
             "if": "Bash(*rg *-r*)",
-            "command": "/Users/bstemmildt/opt/claude-rg-guard/target/release/claude-rg-guard" }
+            "command": "/Users/bstemmildt/dev/hackersandwizards/public/claude-rust-guard-example/target/release/claude-rg-guard" }
         ]
       }
     ]

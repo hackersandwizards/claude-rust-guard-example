@@ -1,151 +1,66 @@
-# claude-rg-guard
+# claude-rust-guard-example
 
-A Claude Code **PreToolUse** hook that blocks a Bash command when it invokes
-ripgrep with a bare `-r`, e.g. `rg -r foo`.
+An example of a Claude Code **PreToolUse** hook written in Rust: a port of a zsh hook, held to the original by parity tests and a differential fuzzer. It is for people who write their own hooks and want to read or copy the technique. The hook works, but nothing depends on it and there are no releases.
 
-In grep, `-r` means recursive. In **ripgrep, `-r` is `--replace`** — and ripgrep
-already recurses by default. So `rg -r foo` silently treats `foo` as a replacement
-string, not a recursive search. Claude types it out of grep muscle memory. This hook
-catches it, exits non-zero, and feeds back a one-line correction so Claude retries
-without `-r`. It is a quality nudge, not a safety guard: `--replace` only rewrites
-printed output, never files.
+The hook blocks a Bash command when it invokes ripgrep with a bare `-r`, e.g. `rg -r foo`. In grep, `-r` means recursive. In **ripgrep, `-r` is `--replace`**, and ripgrep already recurses by default. So `rg -r foo` silently treats `foo` as a replacement string, not a recursive search. Claude types it out of grep muscle memory. The hook catches it, exits non-zero, and feeds back a one-line correction so Claude retries without `-r`. It is a quality nudge, not a safety guard: `--replace` only rewrites printed output, never files.
 
-This is a Rust port of an earlier zsh hook. The zsh version is kept verbatim at
-[`reference/rg-recursion-guard.zsh`](reference/rg-recursion-guard.zsh) as the
-**parity oracle** the tests check against.
+| You want | Go to |
+| --- | --- |
+| See how the hook decides | [How it works](#how-it-works) |
+| See what it blocks and allows | [docs/behaviour.md](docs/behaviour.md) |
+| Try it in Claude Code | [Build and wire up](#build-and-wire-up) |
+| Read the code | [Where to look](#where-to-look) |
+| Learn the hook contract | [Claude Code's hooks reference](https://code.claude.com/docs/en/hooks) |
+| Know what the port gained | [docs/performance.md](docs/performance.md) |
+| Run the tests, the git hooks, change it | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## How it works
 
-1. Claude Code calls the hook only when the command matches the settings gate
-   `if: "Bash(*rg *-r*)"` — for everything else **no process is spawned** (0 ms).
-2. The binary reads the hook JSON on stdin, cheap-gates on `rg` + `-r` substrings,
-   extracts `.tool_input.command` (serde_json, in-process — no `jaq` subprocess).
-3. It tokenizes the command with a quote-aware lexer that mirrors zsh `${(z)}`
-   (quotes retained, `$(...)`/backticks kept whole, operators split out, newline →
-   `;`, `)` always split, and `(` split only in command position — so `(rg -r x)` is a subshell
-   but `foo (rg -r x)` is an argument), then a 3-state machine (head / rg / other)
-   attributes a bare `-r` (or an `-r*` cluster like `-rn`) to its owning command.
-4. `rg`'s own `-r` → exit 2 + message on stderr (block). Anything else, or stdin
-   that is not hook JSON with a command → exit 0 (**fail open**).
+1. Claude Code calls the hook only when the command matches the settings gate `if: "Bash(*rg *-r*)"`. For everything else **no process is spawned** (0 ms).
+2. The binary reads the hook JSON on stdin, cheap-gates on `rg` + `-r` substrings, and extracts `.tool_input.command` in-process with serde_json.
+3. A quote-aware lexer that mirrors zsh `${(z)}` tokenizes the command. A 3-state machine (head / rg / other) then attributes a bare `-r`, or an `-r*` cluster like `-rn`, to its owning command.
+4. `rg`'s own `-r` → exit 2 and a message on stderr (block). Anything else, or stdin that is not hook JSON with a command → exit 0 (**fail open**).
 
-### What blocks vs. allows
+A blocked call takes 3.15 ms against 12.26 ms for the zsh hook, most of it the cost of spawning a process ([docs/performance.md](docs/performance.md)).
 
-| Blocks (exit 2) | Allows (exit 0) |
-|---|---|
-| `rg -r foo`, `rg -n -r p path`, `rg -rn foo`, `rg -r=x p`, `rg foo -r` | `rg foo \| sort -r` (the `-r` is sort's) |
-| `cat x \| rg -r b`, `time rg -r x`, `sudo rg -r x`, `env X=1 rg -r x` | `rg '-r' x`, `rg "-r" x` (quoted) |
-| `/usr/bin/rg -r x`, `X=1 rg -r x`, `command rg -r x` | `rg -- -r` (`--` ends options), `rg --replace=x p` |
-| `rg foo && rg -r bar` | `grep -r foo`, `myrg -r x`, `rg $(grep -r x) y` |
-| `(rg -r x)`, `time (rg -r x)` (command-position subshell) | `foo (rg -r x)`, `sudo (rg -r x)` (`(` is an argument) |
+## Build and wire up
 
-## Performance
-
-The point of the port was speed. Measured on Apple Silicon (400 spawns each):
-
-| path | zsh hook | rust binary |
-|---|---|---|
-| BLOCK (`rg -r`) | 12.26 ms | **3.15 ms** (~3.9× faster) |
-| early-exit (no `rg/-r`) | 3.97 ms | **3.07 ms** |
-| OS spawn floor (`/usr/bin/true`) | — | 2.65 ms |
-
-Binary: **344 KB** (stripped, LTO).
-
-**It is NOT < 1 ms, and cannot be.** A spawned process floors at the OS
-fork+exec cost — ~2.65 ms here for a binary that does nothing. The Rust binary adds
-only ~0.5 ms of actual work on top of that; the spawn dominates. The only path that
-is truly sub-millisecond is the common one (any command without `rg ... -r`), where
-the settings `if` gate means **nothing spawns at all**.
-
-## Build & wire-up
-
-You need Rust through rustup (`rust-toolchain.toml` selects stable with rustfmt and
-clippy), [just](https://github.com/casey/just), and for the tests zsh and
-[jaq](https://github.com/01mf02/jaq).
+You need Rust through rustup (`rust-toolchain.toml` selects stable) and [just](https://github.com/casey/just).
 
 ```sh
-just build           # cargo build --release
-just install         # prints the binary path to put in settings.json
+just build
+just install
 ```
 
-In `~/.claude/settings.json`, the PreToolUse hook points at the release binary
-(`<clone>` is this repository's directory; `just install` prints the full path):
+`just build` builds the release binary. `just install` installs nothing: it prints the binary's full path. Add the hook to `~/.claude/settings.json`, where `<binary>` is that path, `<clone>/target/release/claude-rg-guard` with `<clone>` this repository's directory:
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          { "type": "command",
-            "if": "Bash(*rg *-r*)",
-            "command": "<clone>/target/release/claude-rg-guard" }
-        ]
-      }
-    ]
+    "PreToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "if": "Bash(*rg *-r*)",
+        "command": "<binary>"
+      }]
+    }]
   }
 }
 ```
 
-The binary must be rebuilt after edits (`just build`) and per machine. If it is
-missing, the hook simply fails open — no guard, no breakage.
+The binary must be rebuilt after edits (`just build`) and per machine. If it is missing, the hook simply fails open: no guard, no breakage.
 
-## Development
+## Where to look
 
-Tooling:
+- [`src/main.rs`](src/main.rs): stdin → gate → JSON extract → lex → state machine → exit 0/2.
+- [`src/lexer.rs`](src/lexer.rs): the tokenizer and the zsh `(z)` rules it reproduces.
+- [`src/guard.rs`](src/guard.rs): the 3-state machine, ported line-for-line from the zsh hook.
+- [`reference/rg-recursion-guard.zsh`](reference/rg-recursion-guard.zsh): the original zsh hook, kept verbatim as the **parity oracle** the tests check against.
+- [`tests/parity.rs`](tests/parity.rs) and [`scripts/fuzz.zsh`](scripts/fuzz.zsh): the parity test and the differential fuzzer.
 
-| concern | tool | command |
-|---|---|---|
-| format | rustfmt (`rustfmt.toml`) | `just fmt` · `just fmt-check` |
-| lint | clippy (`[lints]` in `Cargo.toml`) | `just lint` |
-| test | cargo test | `just test` |
-| check | cargo check | `just check` |
-| git hooks | lefthook (`lefthook.yml`) | `just setup` |
-
-```sh
-brew install lefthook   # one-time, if not already present
-cargo build             # build.rs auto-installs the hooks (npm-`prepare` style)
-just verify             # fmt-check + lint + test + fuzz, by hand
-```
-
-The hooks install themselves: `build.rs` runs `lefthook install` on the first
-local `cargo build`/`cargo test` (fail-soft: without lefthook it prints a Cargo warning and skips; outside a git
-checkout it skips quietly). `just setup` stays as a manual fallback.
-
-`lefthook.yml` runs `cargo fmt` + `cargo clippy -D warnings` (and `zsh -n` on the
-shell scripts) on **pre-commit**, and `cargo test` on **pre-push**. The toolchain
-channel (stable) and its `rustfmt`/`clippy` components are set in `rust-toolchain.toml`. There
-is intentionally no CI — the hooks are the gate.
-
-## Tests
-
-```sh
-just test            # unit tests + corpus parity vs the zsh oracle
-just fuzz 2000       # differential fuzz: 2000 random commands, rust verdict == zsh verdict
-just bench           # the table above
-just all             # verify (fmt-check + lint + test + fuzz) + bench
-```
-
-- `testdata/corpus.txt` — shared inputs; `scripts/oracle.zsh` runs them through the
-  reference zsh hook to produce `testdata/expected.tsv` (ground truth).
-- `tests/parity.rs` — runs the binary over the corpus, asserts exit code == oracle.
-- `scripts/fuzz.zsh` — grammar-generates commands (heads, reserved-word/wrapper/
-  assignment prefixes, balanced subshells, quotes, `$()`/backticks, `\r`, escapes,
-  `#`) and diffs the binary against the zsh hook live. Last run: **20000 cases, 0
-  divergences.**
-
-## Layout
-
-```
-src/main.rs    stdin → gate → JSON extract → lex → state machine → exit 0/2
-src/lexer.rs   (z)-parity tokenizer
-src/guard.rs   3-state machine, ported line-for-line from the zsh oracle
-reference/     the zsh hook, frozen as the parity oracle
-testdata/      corpus.txt + generated expected.tsv
-scripts/       oracle.zsh · fuzz.zsh · bench.zsh
-```
+Claude Code documents hooks, the `if` gate and exit code 2 in its [hooks reference](https://code.claude.com/docs/en/hooks).
 
 ## License
 
-[PolyForm Strict 1.0.0](LICENSE), copyright hackers&wizards GmbH. The name
-hackers&wizards and its logos are not licensed.
+[PolyForm Strict 1.0.0](LICENSE), copyright hackers&wizards GmbH. The name hackers&wizards and its logos are not licensed.

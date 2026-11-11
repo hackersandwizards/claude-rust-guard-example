@@ -1,6 +1,6 @@
 # claude-rust-guard-example
 
-An example of a Claude Code **PreToolUse** hook written in Rust: a port of a zsh hook, held to the original by parity tests and a differential fuzzer. It is for people who write their own hooks and want to read or copy the technique. The hook works, but nothing depends on it and there are no releases.
+An example of a Claude Code **PreToolUse** hook written in Rust: a port of a zsh hook, held to the original by parity tests and a differential fuzzer. It is for people who write their own hooks and want to study the technique. The hook works, but nothing depends on it and there are no releases.
 
 The hook blocks a Bash command when it invokes ripgrep with a bare `-r`, e.g. `rg -r foo`. In grep, `-r` means recursive. In **ripgrep, `-r` is `--replace`**, and ripgrep already recurses by default. So `rg -r foo` silently treats `foo` as a replacement string, not a recursive search. Claude types it out of grep muscle memory. The hook catches it, exits non-zero, and feeds back a one-line correction so Claude retries without `-r`. It is a quality nudge, not a safety guard: `--replace` only rewrites printed output, never files.
 
@@ -63,4 +63,4 @@ Claude Code documents hooks, the `if` gate and exit code 2 in its [hooks referen
 
 ## License
 
-[PolyForm Strict 1.0.0](LICENSE), copyright hackers&wizards GmbH. The name hackers&wizards and its logos are not licensed.
+[PolyForm Strict 1.0.0](LICENSE), copyright hackers&wizards GmbH: you may use it for noncommercial purposes, but not distribute it or make changes or new works based on it. The name hackers&wizards and its logos are not licensed.

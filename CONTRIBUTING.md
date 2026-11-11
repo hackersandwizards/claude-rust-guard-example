@@ -38,7 +38,7 @@ is intentionally no CI — the hooks are the gate.
 ```sh
 just test            # unit tests + corpus parity vs the zsh oracle
 just fuzz 2000       # differential fuzz: 2000 random commands, rust verdict == zsh verdict
-just bench           # the table above
+just bench           # the table in docs/performance.md
 just all             # verify (fmt-check + lint + test + fuzz) + bench
 ```
 

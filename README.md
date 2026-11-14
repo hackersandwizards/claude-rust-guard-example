@@ -63,4 +63,4 @@ Claude Code documents hooks, the `if` gate and exit code 2 in its [hooks referen
 
 ## License
 
-[PolyForm Strict 1.0.0](LICENSE), copyright hackers&wizards GmbH: you may use it for noncommercial purposes, but not distribute it or make changes or new works based on it. The name hackers&wizards and its logos are not licensed.
+[MIT](LICENSE), copyright hackers&wizards GmbH: you may use, change and redistribute it. The name hackers&wizards and its logos are not licensed.

@@ -63,4 +63,4 @@ Claude Code documents hooks, the `if` gate and exit code 2 in its [hooks referen
 
 ## License
 
-[MIT](LICENSE), copyright hackers&wizards GmbH: you may use, change and redistribute it. The name hackers&wizards and its logos are not licensed.
+[MIT](LICENSE), copyright hackers&wizards GmbH: you may use, change and redistribute it. The name hackers&wizards and its logos are trademarks of hackers&wizards GmbH and are not licensed. Third-party material in this repository keeps its own licence.
